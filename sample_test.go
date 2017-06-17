@@ -50,7 +50,7 @@ func TestSetConConfig(t *testing.T) {
 	db := testNewDB(t)
 	db.SetMaxIdleConns(10)
 	db.SetMaxOpenConns(50)
-	// db.SetConnMaxLifetime(time.Duration(1))
+	db.SetConnMaxLifetime(time.Duration(10 * time.Second))
 
 	var (
 		tm time.Time
@@ -69,14 +69,15 @@ func TestSetConConfig(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	// time.Sleep(10 * time.Second)
 	t.Logf("Final OpenConn=%d", db.Stats().OpenConnections)
 }
 
-func TestAcquireConn(t *testing.T) {
+func TestAcquireConnWithMaxLifetime(t *testing.T) {
 	db := testNewDB(t)
 	db.SetMaxIdleConns(10)
 	db.SetMaxOpenConns(50)
-	// db.SetConnMaxLifetime(time.Duration(1))
+	db.SetConnMaxLifetime(time.Duration(10 * time.Second))
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -89,7 +90,7 @@ func TestAcquireConn(t *testing.T) {
 			}
 			defer stdlib.ReleaseConn(db, conn)
 
-			var pid1, pid2, pid3 int64
+			var pid1, pid2, pid3, pid4 int64
 			if err := conn.QueryRow(`select pg_backend_pid()`).Scan(&pid1); err != nil {
 				t.Fatal(err)
 			}
@@ -99,11 +100,15 @@ func TestAcquireConn(t *testing.T) {
 			if err := conn.QueryRow(`select pg_backend_pid()`).Scan(&pid3); err != nil {
 				t.Fatal(err)
 			}
-			t.Logf("%d: %d=%d=%d", x, pid1, pid2, pid3)
+			if err := conn.QueryRow(`select pg_backend_pid()`).Scan(&pid4); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("%d: %d=%d=%d=%d", x, pid1, pid2, pid3, pid4)
 			t.Logf("OpenConn=%d", db.Stats().OpenConnections)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+	time.Sleep(3 * time.Second)
 	t.Logf("Final OpenConn=%d", db.Stats().OpenConnections)
 }
