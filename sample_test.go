@@ -78,10 +78,7 @@ func TestAcquireConn(t *testing.T) {
 	db.SetMaxOpenConns(50)
 	// db.SetConnMaxLifetime(time.Duration(1))
 
-	var (
-		tm time.Time
-		wg sync.WaitGroup
-	)
+	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		x := i
@@ -92,10 +89,17 @@ func TestAcquireConn(t *testing.T) {
 			}
 			defer stdlib.ReleaseConn(db, conn)
 
-			if err := conn.QueryRow(`select now()`).Scan(&tm); err != nil {
+			var pid1, pid2, pid3 int64
+			if err := conn.QueryRow(`select pg_backend_pid()`).Scan(&pid1); err != nil {
 				t.Fatal(err)
 			}
-			t.Logf("%d: %s", x, tm)
+			if err := conn.QueryRow(`select pg_backend_pid()`).Scan(&pid2); err != nil {
+				t.Fatal(err)
+			}
+			if err := conn.QueryRow(`select pg_backend_pid()`).Scan(&pid3); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("%d: %d=%d=%d", x, pid1, pid2, pid3)
 			t.Logf("OpenConn=%d", db.Stats().OpenConnections)
 			wg.Done()
 		}()
