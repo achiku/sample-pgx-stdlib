@@ -1,0 +1,2 @@
+gom 'github.com/jackc/pgx', :branch => 'v3'
+gom 'github.com/inconshreveable/log15'
