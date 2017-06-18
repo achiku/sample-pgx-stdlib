@@ -112,3 +112,53 @@ func TestAcquireConnWithMaxLifetime(t *testing.T) {
 	time.Sleep(3 * time.Second)
 	t.Logf("Final OpenConn=%d", db.Stats().OpenConnections)
 }
+
+func testDBSetup(t *testing.T, db *sql.DB) func() {
+	db.Exec(`drop table t1`)
+	_, err := db.Exec(`create table t1 (id serial)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return func() {
+		db.Exec(`drop table t1`)
+		db.Close()
+	}
+}
+
+func TestTx(t *testing.T) {
+	db := testNewDB(t)
+	f := testDBSetup(t, db)
+	defer f()
+
+	conn, err := stdlib.AcquireConn(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tx, err := conn.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`insert into t1 (id) values (10)`); err != nil {
+		t.Fatal(err)
+	}
+
+	var cnt1 int
+	if err := tx.QueryRow(`select count(*) from t1`).Scan(&cnt1); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("TxCount=%d", cnt1)
+
+	var cnt2 int
+	if err := conn.QueryRow(`select count(*) from t1`).Scan(&cnt2); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("ConnCount=%d", cnt2)
+
+	var cnt3 int
+	if err := db.QueryRow(`select count(*) from t1`).Scan(&cnt3); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("DBCount=%d", cnt3)
+}
