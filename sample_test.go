@@ -199,6 +199,6 @@ func TestTimeWithTz(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("tm=%s", tm)
-	t.Logf("dt=%s", dt)
+	t.Logf("tm=%s, tz=%s", tm, tm.Location())
+	t.Logf("dt=%s, tz=%s", dt, dt.Location())
 }
