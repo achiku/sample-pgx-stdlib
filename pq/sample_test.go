@@ -56,7 +56,7 @@ func TestTimeWithTz(t *testing.T) {
 	f := testDBSetup(t, db)
 	defer f()
 
-	now := time.Now()
+	now := time.Date(2017, 8, 18, 0, 0, 0, 0, time.Local)
 	t.Logf("%s", now)
 	var ID int64
 	err := db.QueryRow(`insert into t2 (tm, dt) values ($1, $2) returning id`, now, now).Scan(&ID)
@@ -74,4 +74,20 @@ func TestTimeWithTz(t *testing.T) {
 	}
 	t.Logf("tm=%s, tz=%s", tm, tm.Location())
 	t.Logf("dt=%s, tz=%s", dt, dt.Location())
+
+	a := time.Date(2017, 8, 18, 0, 0, 0, 0, time.UTC)
+	t.Logf("a=%s, tz=%s", a, a.Location())
+
+	b := time.Date(2017, 8, 18, 0, 0, 0, 0, &time.Location{})
+	t.Logf("b=%s, tz=%s", b, b.Location())
+
+	c := time.Date(2017, 8, 18, 0, 0, 0, 0, time.Local)
+	t.Logf("c=%s, tz=%s", c, c.Location())
+
+	if !a.Equal(b) {
+		t.Errorf("a != b")
+	}
+	if c.Equal(b) || c.Equal(a) {
+		t.Errorf("c == b || c == a")
+	}
 }
