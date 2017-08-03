@@ -218,3 +218,86 @@ func TestTimeWithTz(t *testing.T) {
 		t.Errorf("c == b || c == a")
 	}
 }
+
+func TestCreateTimeWithDateUTC(t *testing.T) {
+	db := testNewDB(t)
+	f := testDBSetup(t, db)
+	defer f()
+	// testDBSetup(t, db)
+
+	cases := []time.Time{
+		time.Now(),
+		time.Date(2017, 8, 18, 23, 59, 59, 0, time.Local),
+		time.Date(2017, 8, 18, 0, 0, 0, 0, time.Local),
+	}
+	for _, c := range cases {
+		var ID int64
+		err := db.QueryRow(`insert into t2 (tm, dt) values ($1, $2) returning id`, c, c).Scan(&ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var (
+			tm time.Time
+			dt time.Time
+		)
+		err = db.QueryRow(`select tm, dt from t2 where id = $1`, ID).Scan(&tm, &dt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("tm=%s, tz=%s", tm, tm.Location())
+		t.Logf("dt=%s, tz=%s", dt, dt.Location())
+		//  select * from t2;
+		//  id |              tm               |     dt
+		// ----+-------------------------------+------------
+		//   1 | 2017-08-02 09:46:59.712814+00 | 2017-08-02
+		//   2 | 2017-08-18 14:59:59+00        | 2017-08-18
+		//   3 | 2017-08-17 15:00:00+00        | 2017-08-18
+	}
+}
+
+func TestCompareTimeWithDateUTC(t *testing.T) {
+	db := testNewDB(t)
+	f := testDBSetup(t, db)
+	defer f()
+	// testDBSetup(t, db)
+
+	cases := []struct {
+		DBVal time.Time
+		GoVal time.Time
+		Equal bool
+	}{
+		{
+			DBVal: time.Date(2017, 8, 18, 23, 59, 59, 0, time.Local),
+			GoVal: time.Date(2017, 8, 18, 0, 0, 0, 0, time.UTC),
+			Equal: true,
+		},
+		{
+			DBVal: time.Date(2017, 8, 18, 23, 59, 59, 0, time.Local),
+			GoVal: time.Date(2017, 8, 18, 1, 0, 0, 0, time.Local),
+			Equal: false,
+		},
+	}
+	for _, c := range cases {
+		var ID int64
+		err := db.QueryRow(
+			`insert into t2 (tm, dt) values ($1, $2) returning id`, c.DBVal, c.DBVal).Scan(&ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var (
+			tm time.Time
+			dt time.Time
+		)
+		err = db.QueryRow(`select tm, dt from t2 where id = $1`, ID).Scan(&tm, &dt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		JST := time.FixedZone("JST", 9*60*60)
+		t.Logf("%s", dt.In(JST))
+		t.Logf("%s", c.GoVal.Sub(dt))
+		t.Logf("%s", c.GoVal.Sub(dt.In(JST)))
+		t.Logf("%t", IsAfter(c.GoVal, dt, JST))
+	}
+}
